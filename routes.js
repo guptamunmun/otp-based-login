@@ -5,14 +5,10 @@ const jwt= require("jsonwebtoken")
 
 const router = express.Router();
 
-// Create a nodemailer transporter
-const transporter = nodemailer.createTransport({
-  service: 'Gmail',
-  auth: {
-    user: 'your_email_address',
-    pass: 'your_email_password',
-  },
-});
+
+
+
+
 
 // Generate OTP
 function generateOTP(length) {
@@ -52,27 +48,37 @@ async function saveOtpToDatabase(email, otp, otpExpiry,otpRequestTime) {
   }
 }
 
-// //Send OTP via email
-// function sendOtpByEmail(email, otp) {
-//     const mailOptions = {
-//       from: 'examl@example.com',
-//       to: email,
-//       subject: 'OTP for Login',
-//       text: `Your OTP is: ${otp}`,
-//     };
-  
-//     transporter.sendMail(mailOptions, (err) => {
-//       if (err) {
-//         console.error('Error sending OTP email:', err);
-//       }
-//     });
-//   }
 
 // Generate OTP API
 router.post('/generate-otp', async (req, res) => {
     const { email } = req.body;
 
+    let testAccount = await nodemailer.createTestAccount();
+    // Create a nodemailer transporter
+const transporter = nodemailer.createTransport({
+  host: "smtp.ethereal.email",
+    port: 587,
+    secure: false, // true for 465, false for other ports
+    auth: {
+      user: testAccount.user, // generated ethereal user
+      pass: testAccount.pass, // generated ethereal password
+    },
+});
+  //send otp by email
+function sendOtpByEmail(email, otp) {
+  const mailOptions = {
+  from: '"Fred Foo 👻" <foo@example.com>', // sender address
+  to: email, // list of receivers
+  subject: 'OTP for Login',
+  text: `Your OTP is: ${otp}`,
+  }
   
+    transporter.sendMail(mailOptions, (err) => {
+      if (err) {
+        console.error('Error sending OTP email:', err);
+      }
+    });
+  }
     const lastOtpRequestTime = await User.findOne({ email }).select('otpRequestTime');
     const currentTime = Date.now();
   
@@ -81,9 +87,9 @@ router.post('/generate-otp', async (req, res) => {
     }
   
     const user = await User.findOne({ email });
-    if (!user) {
-        return res.status(404).json({ message: 'User not found.' });
-      }
+    // if (!user) {
+    //     return res.status(404).json({ message: 'User not found.' });
+    //   }
     if (user && user.blockedUntil && user.blockedUntil > currentTime) {
       const blockDuration = Math.ceil((user.blockedUntil - currentTime) / 1000 / 60); // Calculate the remaining block duration in minutes
       console.log('Blocked Until:', user.blockedUntil);  // Log the value of blockedUntil
@@ -93,17 +99,13 @@ router.post('/generate-otp', async (req, res) => {
     const otp = generateOTP(6); // Generate a 6-digit OTP
     const otpExpiry = new Date(Date.now() + 300000); // OTP valid for 5 minutes
     const otpRequestTime = Date.now();
-    // await sendOtpByEmail(email, otp); // Sending OTP by email
+    await sendOtpByEmail(email, otp); // Sending OTP by email
   
     const save = await saveOtpToDatabase(email, otp, otpExpiry, otpRequestTime);
-    res.status(200).json({ ...save.toObject(), blockedUntil: user.blockedUntil, otpRequestTime });
+    res.status(200).json({ ...save.toObject(), otpRequestTime });
   });
   
   
-  
-
-
-
 
 
 // Handle invalid OTP attempts
@@ -164,14 +166,6 @@ async function handleInvalidOtp(email) {
     res.json({ token });
   });
   
-  
-
-
-
-
-
-
-
 
 
 module.exports = router;

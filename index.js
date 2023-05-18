@@ -1,6 +1,6 @@
 const express = require('express');
 
-const route = require("../routes")
+const route = require("./routes")
 const mongoose = require('mongoose');
 
 const app = express();
